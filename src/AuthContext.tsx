@@ -1,85 +1,98 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-}
+interface User { id: number; username: string; email: string; }
 
 interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  loading: boolean;
+    user: User | null;
+    token: string | null;
+    apiUrl: string;
+    baseUrl: string;
+    login: (email: string, password: string) => Promise<void>;
+    register: (username: string, email: string, password: string) => Promise<void>;
+    logout: () => void;
+    loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
+{
+    const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
+    const apiUrl  = "https://melodize-backend.gj8pu6.easypanel.host/api";
+    const baseUrl = "https://melodize-backend.gj8pu6.easypanel.host";
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    useEffect(() => 
+    {
+        const storedToken = sessionStorage.getItem('token');
+        const storedUser = sessionStorage.getItem('user');
+        
+        if (storedToken && storedUser) 
+        {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+        }
 
-      if (!response.ok) throw new Error('Login failed');
+        setLoading(false);
+    }, []);
 
-      const data = await response.json();
-      setToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
-  };
+    const login = async (email: string, password: string) => 
+    {
+        try 
+        {
+            const response = await fetch(`${apiUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
 
-  const register = async (username: string, email: string, password: string) => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      });
+            if (!response.ok) throw new Error('Login failed');
 
-      if (!response.ok) throw new Error('Registration failed');
-      
-      await login(email, password);
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
-  };
+            const data = await response.json();
+            setToken(data.token);
+            setUser(data.user);
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+        } 
+        catch (error) 
+        {
+            console.error(error);
+            throw error;
+        }
+    };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  };
+    const register = async (username: string, email: string, password: string) => 
+    {
+        try {
+            const response = await fetch(`${apiUrl}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password }),
+            });
+
+            if (!response.ok) throw new Error('Registration failed');
+            
+            await login(email, password);
+        } 
+        catch (error) 
+        {
+            console.error(error);
+            throw error;
+        }
+    };
+
+    const logout = () => 
+    {
+        setToken(null);
+        setUser(null);
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+    };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, apiUrl, baseUrl, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

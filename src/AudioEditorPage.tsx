@@ -5,8 +5,8 @@ import { useAuth } from './AuthContext';
 
 const AudioEditorPage = () => {
   const { songId } = useParams();
-  const [recordingId, setRecordingId] = useState<string | null>(null);
-  const { token } = useAuth();
+  const [recordingId] = useState<string | null>(null);
+  const { token, apiUrl } = useAuth();
   const navigate = useNavigate();
 
   const handleSave = async (audioBlob: Blob) => 
@@ -16,7 +16,7 @@ const AudioEditorPage = () => {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.wav');
       
-      const url = recordingId ? `${process.env.REACT_APP_API_BASE_URL}/api/recordings/${recordingId}` : `${process.env.REACT_APP_API_BASE_URL}/api/recordings`;
+      const url = recordingId ? `${apiUrl}/recordings/${recordingId}` : `${apiUrl}/recordings`;
       
       const method = recordingId ? 'PUT' : 'POST';
       
@@ -36,7 +36,7 @@ const AudioEditorPage = () => {
         songId={songId}
         recordingId={recordingId ?? ''}
         onSave={handleSave}
-        onCancel={() => navigate(`/songs/${songId}/recordings`)}
+        onCancel={() => navigate(`/songs`)}
       />
     </div>
   );

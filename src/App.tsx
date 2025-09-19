@@ -16,7 +16,7 @@ const App = () => {
           <Route path="/register" element={<Register />} />
 
           <Route path="/" element={<Navigate to="/songs" replace />} />
-
+          
           <Route path="/songs" element={<SongList />} />
           
           <Route path="/songs/:songId/recordings" element={<RecordingManager />} />

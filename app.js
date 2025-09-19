@@ -5,19 +5,42 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import cors from 'cors';
+
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-import dotenv from 'dotenv';
-dotenv.config();
-
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+    origin: ['http://localhost:5173', 'http://localhost:3000', 'https://melodize-backend.gj8pu6.easypanel.host'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
+
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Origin', req.headers.origin);
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        return res.sendStatus(204);
+    }
+    next();
+});
+
 app.use(express.json());
+
 app.use('/uploads', express.static('uploads'));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -41,7 +64,7 @@ const authenticateToken = (req, res, next) =>
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => 
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => 
     {
         if (err) return res.sendStatus(403);
         req.user = user;
@@ -99,13 +122,14 @@ app.post('/api/songs', authenticateToken, upload.single('audio'), async (req, re
 {
     try 
     {
-        const { name, rhythm, genre } = req.body;
+        const { name, description, genre, bpm, tom, duration } = req.body;
         const audioPath = req.file.path;
         const userId = req.user.id;
         
-        const [result] = await db.execute('INSERT INTO songs (name, rhythm, genre, audio_path, user_id) VALUES (?, ?, ?, ?, ?)', [name, rhythm, genre, audioPath, userId]);
+        const [result] = await db.execute('INSERT INTO songs (name, description, genre, bpm, tom, duration, audio_path, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+            [name, description, genre, bpm, tom, duration, audioPath, userId]);
         
-        res.status(201).json({ id: result.insertId, name, rhythm, genre, audioPath });
+        res.status(201).json({ id: result.insertId, name, description, genre, bpm, tom, duration, audioPath });
     } 
     catch (error) 
     {
@@ -118,8 +142,7 @@ app.get('/api/songs', authenticateToken, async (req, res) =>
 {
     try 
     {
-        const userId = req.user.id;
-        const [rows] = await db.execute('SELECT * FROM songs WHERE user_id = ?', [userId]);
+        const [rows] = await db.execute('SELECT * FROM songs');
         res.json(rows);
     } 
     catch (error) 
@@ -134,13 +157,12 @@ app.get('/api/songs/:id', authenticateToken, async (req, res) =>
     try 
     {
         const { id } = req.params;
-        const userId = req.user.id;
         
-        const [rows] = await db.execute('SELECT * FROM songs WHERE id = ? AND user_id = ?', [id, userId]);
+        const [rows] = await db.execute('SELECT * FROM songs WHERE id = ?', [id]);
         
         if (rows.length === 0) return res.status(404).json({ error: 'Song not found' });
         
-        res.json(rows[0]);
+        res.json(rows);
     } 
     catch (error) 
     {
@@ -170,6 +192,36 @@ app.delete('/api/songs/:id', authenticateToken, async (req, res) =>
     {
         console.error('Erro ao deletar música:', error);
         res.status(500).json({ error: 'Erro ao deletar música' });
+    }
+});
+
+app.get('/api/recordings', authenticateToken, async (req, res) => 
+{
+    try 
+    {
+        const userId = req.user.id;
+        const [rows] = await db.execute('SELECT id FROM recordings WHERE user_id = ?', [userId]);
+        res.json(rows);
+    } 
+    catch (error) 
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch recordings' });
+    }
+});
+
+app.get('/api/recordings/all', authenticateToken, async (req, res) => 
+{
+    try 
+    {
+        const userId = req.user.id;
+        const [rows] = await db.execute('SELECT * FROM recordings WHERE user_id = ?', [userId]);
+        res.json(rows);
+    } 
+    catch (error) 
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch recordings' });
     }
 });
 
@@ -287,6 +339,13 @@ app.delete('/api/recordings/:id', authenticateToken, async (req, res) =>
         console.error('Erro ao deletar gravação:', error);
         res.status(500).json({ error: 'Erro ao deletar gravação' });
     }
+});
+
+app.use((req, res, next) => 
+{
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
+    
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
